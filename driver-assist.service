@@ -1,0 +1,11 @@
+[Unit]
+Description=Driver Assist Program
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/bin/docker run --rm --runtime nvidia --network host --name driver-assist-program driver-assist-program
+
+[Install]
+WantedBy=multi-user.target
