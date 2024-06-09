@@ -7,10 +7,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy your program into the container
-COPY DriverAssistProgram /DriverAssistProgram
+COPY DriverAssistProgram /DriverAssistSystem
 
 # Set the working directory
-WORKDIR /DriverAssistProgram
+WORKDIR /DriverAssistSystem
 
 # Install Python dependencies (if any)
 RUN pip3 install -r requirements.txt
