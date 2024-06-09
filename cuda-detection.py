@@ -55,7 +55,7 @@ def calculate_distance(known_width, focal_length, perceived_width):
 @app.route('/')
 def index():
     # Ensure 'index5.html' is in the templates directory
-    return render_template('index7.html')
+    return render_template('index.html')
 
 # Flask route to serve video feed
 @app.route('/video_feed')
