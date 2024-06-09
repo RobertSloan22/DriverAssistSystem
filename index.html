@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic Dashboard</title>
+    <style>
+        body {
+            background-color: #001f3f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        h1 {
+            margin-top: 50px;
+            font-size: 3em;
+        }
+        #video-container {
+            margin-top: 50px;
+        }
+        video {
+            border: 5px solid #00aaff;
+            width: 80%;
+            height: auto;
+        }
+        #camera-controls {
+            margin-top: 20px;
+        }
+        button {
+            background-color: #00aaff;
+            color: #ffffff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0077cc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Futuristic Dashboard</h1>
+    <div id="video-container">
+        <img id="video-feed" src="/video_feed?camera=forward">
+    </div>
+    <div id="camera-controls">
+        <button onclick="switchCamera('forward')">Forward Camera</button>
+        <button onclick="switchCamera('rear')">Rear Camera</button>
+    </div>
+
+    <script>
+        function switchCamera(camera) {
+            const videoFeed = document.getElementById('video-feed');
+            videoFeed.src = `/video_feed?camera=${camera}`;
+        }
+    </script>
+</body>
+</html>
