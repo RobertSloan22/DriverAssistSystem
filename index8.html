@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SRX-ADAS</title>
+    <!-- Include local Leaflet CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaflet.css') }}" />
+    <!-- Include local Leaflet JS -->
+    <script src="{{ url_for('static', filename='leaflet.js') }}"></script>
+    <!-- Include local Bootstrap CSS -->
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+        }
+
+        /* Style for the left-side button container */
+        .button-container {
+	    height: 100%;
+            width: 25%; /* No more than 1/4 of the screen width */
+            background-color: #333333;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            z-index: 1000;
+        }
+
+        .button-container h1 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .button-container button {
+            margin-bottom: 10px;
+            width: 100%; /* Buttons take full width of the container */
+            color: white;
+        }
+
+        /* Background container to hold the background image and video feed */
+        .background-container {
+            width: 75%; /* Remaining 3/4 of the screen */
+            height: 100%;
+            margin-left: 25%; /* Push content to the right of the button container */
+            background-image: url('/static/digital.jpg');
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Styling for the video feed image */
+        .video-feed {
+            width: 750px;
+            height: 275px;
+            z-index: 500; /* Ensure it's above the background */
+        }
+
+        #map {
+            width: 1000px;
+            height: 200px;
+            margin: 20px 0;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+    </style>
+    <script>
+        function switchCamera(cameraPath) {
+            fetch('/switch_camera', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ camera_path: cameraPath })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+                // Optionally, update the UI or show a notification
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</head>
+<body>
+<div class="button-container">
+    <h1>SRX RANGER2 ADAS</h1>
+    <button onclick="location.href='http://192.168.25.199:3000'" type="button" class="btn btn-primary btn-lg px-2 gap-3">DriverAssist</button>
+    <button onclick="location.href='http://192.168.25.199:3300'" type="button" class="btn btn-primary btn-lg px-2 gap-3">ADAS</button>  
+    <button onclick="switchCamera('v4l2:///dev/video0')" type="button" class="btn btn-primary btn-lg px-2 gap-3">F-Alert</button>
+    <button onclick="switchCamera('v4l2:///dev/video1')" type="button" class="btn btn-primary btn-lg px-2 gap-3">R-Alert</button>
+</div>
+<div class="background-container">
+    <!-- The video feed is sourced from a server-side route -->
+    <img src="{{ url_for('video_feed') }}" class="video-feed" />
+</div>
+<!-- Include local jQuery, Popper.js, and Bootstrap JS -->
+<script src="{{ url_for('static', filename='jquery.min.js') }}"></script>
+<script src="{{ url_for('static', filename='popper.min.js') }}"></script>
+<script src="{{ url_for('static', filename='bootstrap.min.js') }}"></script>
+</body>
+</html>
+
