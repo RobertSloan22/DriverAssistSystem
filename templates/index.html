@@ -1,63 +1,69 @@
+<!DOCTYPE html>
 <html>
 <head>
-    <title>Location Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <!-- Include Bootstrap CSS for responsive layout and styling -->
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <title>SRX-ADAS</title>
+    <!-- Include local Leaflet CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaflet.css') }}" />
+    <!-- Include local Leaflet JS -->
+    <script src="{{ url_for('static', filename='leaflet.js') }}"></script>
+    <!-- Include local Bootstrap CSS -->
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
+            display: flex;
         }
 
-        /* Style for the navigation bar */
-        .navbar {
-            width: 100%;
+        /* Style for the left-side button container */
+        .button-container {
+	    height: 100%;
+            width: 25%; /* No more than 1/4 of the screen width */
             background-color: #333333;
-            overflow: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
             position: fixed;
             top: 0;
-            opacity: 0.8;
+            bottom: 0;
             z-index: 1000;
         }
 
-        .navbar a {
-            float: left;
-            padding: 20px;
+        .button-container h1 {
             color: white;
-            text-decoration: none;
-            font-size: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
         }
 
-        .navbar a:hover {
-            background-color: #ddd;
-            color: black;
+        .button-container button {
+            margin-bottom: 10px;
+            width: 100%; /* Buttons take full width of the container */
+            color: white;
         }
 
         /* Background container to hold the background image and video feed */
         .background-container {
-            width: 100%;
-            height: calc(100% - 40px); /* Subtract the height of the navbar */
+            width: 75%; /* Remaining 3/4 of the screen */
+            height: 100%;
+            margin-left: 25%; /* Push content to the right of the button container */
             background-image: url('/static/digital.jpg');
             background-size: cover;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding-top: 40px; /* Add padding equal to navbar height */
         }
 
         /* Styling for the video feed image */
         .video-feed {
-            width: 650px;
-            height: 355px;
+            width: 750px;
+            height: 275px;
+            z-index: 500; /* Ensure it's above the background */
         }
-        .video-feed2 {
-            width: 400px;
-            height: 200px;
-        }
+
         #map {
             width: 1000px;
             height: 200px;
@@ -68,21 +74,41 @@
             margin-bottom: 0;
         }
     </style>
+    <script>
+        function switchCamera(cameraPath) {
+            fetch('/switch_camera', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ camera_path: cameraPath })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);
+                // Optionally, update the UI or show a notification
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
 </head>
 <body>
-<div class="navbar">
-    <h1 style="color: white;">SRX RANGER2 ADAS</h1>
-    <button onclick="location.href='http://192.168.25.199:3000'" type="button" class="btn btn-primary btn-lg px-2 gap-3">LaneMapping</button>
-    <button onclick="location.href='http://192.168.25.199:3300'" type="button" class="btn btn-primary btn-lg px-2 gap-3">F-Alert</button>
-    <button onclick="location.href='http://192.168.25.199:3500'" type="button" class="btn btn-primary btn-lg px-2 gap-3">R-Alert</button>
-    <button onclick="location.href='http://192.168.25.199:3600'" type="button" class="btn btn-primary btn-lg px-2 gap-3">F-CNNET</button>
-    <button onclick="location.href='http://192.168.25.199:3800'" type="button" class="btn btn-primary btn-lg px-2 gap-3">R-CNNET</button>
-    <button onclick="location.href='http://192.168.25.199:3900'" type="button" class="btn btn-primary btn-lg px-2 gap-3">R-Fast</button>
+<div class="button-container">
+    <h1>SRX RANGER2 ADAS</h1>
+    <button onclick="location.href='http://192.168.25.199:3000'" type="button" class="btn btn-primary btn-lg px-2 gap-3">DriverAssist</button>
+    <button onclick="location.href='http://192.168.25.199:3300'" type="button" class="btn btn-primary btn-lg px-2 gap-3">ADAS</button>  
+    <button onclick="switchCamera('v4l2:///dev/video0')" type="button" class="btn btn-primary btn-lg px-2 gap-3">F-Alert</button>
+    <button onclick="switchCamera('v4l2:///dev/video1')" type="button" class="btn btn-primary btn-lg px-2 gap-3">R-Alert</button>
 </div>
-
 <div class="background-container">
     <!-- The video feed is sourced from a server-side route -->
     <img src="{{ url_for('video_feed') }}" class="video-feed" />
 </div>
+<!-- Include local jQuery, Popper.js, and Bootstrap JS -->
+<script src="{{ url_for('static', filename='jquery.min.js') }}"></script>
+<script src="{{ url_for('static', filename='popper.min.js') }}"></script>
+<script src="{{ url_for('static', filename='bootstrap.min.js') }}"></script>
 </body>
 </html>
