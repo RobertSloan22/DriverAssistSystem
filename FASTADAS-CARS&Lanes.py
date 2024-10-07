@@ -7,7 +7,6 @@ import sys
 import argparse
 from jetson_inference import detectNet
 from jetson_utils import videoSource, videoOutput, Log
-import subprocess
 
 app = Flask(__name__)
 
@@ -44,7 +43,7 @@ PROXIMITY_ALERT_DISTANCE = 20 * 12  # 7 feet in inches
 detected_objects = []
 horizontal_line_position = 0
 moving_right = True
-speed = 15  # Adjust this value to control the speed of the horizontal line movement
+speed = 45  # Adjust this value to control the speed of the horizontal line movement
 switch_camera_flag = False
 current_camera_path = "v4l2:///dev/video0"
 
@@ -184,11 +183,11 @@ class Lane:
 
         return result
 
-def calculate_distance(known_width, focal_length, perceived_width):
-    """Calculate distance from camera to object."""
-    if perceived_width == 0:
-        return float('inf')
-    return (known_width * focal_length) / perceived_width
+def draw_cuda_line(gpu_frame, start_point, end_point, color, thickness=2):
+    """Draw a line using CUDA on a GpuMat frame."""
+    frame_cpu = gpu_frame.download()  # Transfer to CPU
+    cv2.line(frame_cpu, start_point, end_point, color, thickness)  # Draw on CPU
+    gpu_frame.upload(frame_cpu)  # Transfer back to GPU
 
 def adjust_gamma(image, gamma=0.5):
     """Apply gamma correction to adjust brightness."""
@@ -196,7 +195,7 @@ def adjust_gamma(image, gamma=0.5):
     table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
     return cv2.LUT(image, table)
 
-def update_line_positions(frame_width, frame_height, frame):
+def update_line_positions(frame_width, frame_height, gpu_frame):
     global horizontal_line_position, moving_right, speed
     line_length_h = frame_width // 4
     if moving_right:
@@ -210,13 +209,19 @@ def update_line_positions(frame_width, frame_height, frame):
 
     start_point_h = (horizontal_line_position - line_length_h, frame_height // 2)
     end_point_h = (horizontal_line_position + line_length_h, frame_height // 2)
-    cv2.line(frame, start_point_h, end_point_h, (0, 255, 0), 2)
+    draw_cuda_line(gpu_frame, start_point_h, end_point_h, (0, 0, 255), 2)
 
     line_length_v = frame_height // 5
     start_point_v = (frame_width // 2, frame_height // 2 - line_length_v // 2)
     end_point_v = (frame_width // 2, frame_height // 2 + line_length_v // 2)
-    cv2.line(frame, start_point_v, end_point_v, (0, 255, 0), 2)
-
+    draw_cuda_line(gpu_frame, start_point_v, end_point_v, (0, 0, 255), 2)
+    
+    
+def calculate_distance(known_width, focal_length, perceived_width):
+    """Calculate distance from camera to object."""
+    if perceived_width == 0:
+        return float('inf')
+    return (known_width * focal_length) / perceived_width
 def draw_proximity_alert(proximity_alert, frame, frame_width, frame_height):
     if proximity_alert:
         alert_text = "PROXIMITY ALERT!"
@@ -230,23 +235,13 @@ def draw_proximity_alert(proximity_alert, frame, frame_width, frame_height):
         rect_start = (text_x - 10, text_y - text_size[1] - 10)
         rect_end = (text_x + text_size[0] + 10, text_y + 10)
         cv2.rectangle(frame, rect_start, rect_end, (0, 0, 255), 2)
-def enhance_contrast(frame):
-    """Enhance contrast using histogram equalization."""
-    ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-    channels = cv2.split(ycrcb)
-    cv2.equalizeHist(channels[0], channels[0])
-    cv2.merge(channels, ycrcb)
-    enhanced_frame = cv2.cvtColor(ycrcb, cv2.COLOR_YCrCb2BGR)
-    return enhanced_frame
-
 @app.route('/')
 def index():
-    return render_template('index8.html')
+    return render_template('index8.html')  # Create a combined index page
 
-@app.route('/detected_objects')
-def get_detected_objects():
-    return jsonify(detected_objects)
-
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 @app.route('/switch_camera', methods=['POST'])
 def switch_camera():
     global current_camera_path, switch_camera_flag
@@ -257,12 +252,8 @@ def switch_camera():
         return jsonify({"message": "Camera switched successfully"}), 200
     return jsonify({"message": "Invalid camera path"}), 400
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
 def gen_frames():
-    global horizontal_line_position, moving_right, detected_objects, current_camera_path, switch_camera_flag
+    global horizontal_line_position, moving_right, current_camera_path, switch_camera_flag
     camera = jetson.utils.videoSource(current_camera_path)
     while True:
         if switch_camera_flag:
@@ -275,28 +266,20 @@ def gen_frames():
         jetson.utils.cudaDeviceSynchronize()
         frame = jetson.utils.cudaToNumpy(img)
 
-        # Check and convert if the frame has RGBA channels
-        if frame.shape[2] == 4:  # RGBA format
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-        else:  # RGB format
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # Convert RGBA to BGR for OpenCV
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
-        # Apply gamma correction (adjust gamma value as necessary)
-        frame = adjust_gamma(frame, gamma=0.8)
-
-        # Optional: Enhance contrast if needed
-        frame = enhance_contrast(frame)
-
+        # Resize the frame for performance
         scale_percent = 50
-        width = int(frame.shape[1] * scale_percent / 100)
-        height = int(frame.shape[0] * scale_percent / 100)
-        dim = (width, height)
+        frame_width = int(frame.shape[1] * scale_percent / 100)  # Define frame_width
+        frame_height = int(frame.shape[0] * scale_percent / 100)  # Define frame_height
+        dim = (frame_width, frame_height)
         frame = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
 
         lane_frame = frame.copy()
-
         cuda_mem = jetson.utils.cudaFromNumpy(frame)
-        detections = net.Detect(cuda_mem, width, height)
+
+        detections = net.Detect(cuda_mem, frame_width, frame_height)
         proximity_alert = False
         distances = []
 
@@ -312,6 +295,7 @@ def gen_frames():
             distance = calculate_distance(KNOWN_WIDTH, FOCAL_LENGTH, perceived_width) / 12  # Convert inches to feet
             distances.append((distance, left, top, ID, class_desc))
             detected_objects.append({'id': ID, 'class': class_desc, 'distance': distance, 'position': (left, top)})
+
             if len(detected_objects) > 10:
                 detected_objects.pop(0)
 
@@ -321,17 +305,26 @@ def gen_frames():
             cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 3)
             cv2.putText(frame, f"{class_desc}: {distance:.2f} ft", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
+        # CUDA-based GpuMat for further operations
+        gpu_frame = cv2.cuda_GpuMat()
+        gpu_frame.upload(frame)
+
+        # Draw moving lines using CUDA
+        update_line_positions(frame_width, frame_height, gpu_frame)
+
+        # Download the frame with drawn lines
+        frame_with_lines = gpu_frame.download()
+
+        # Continue with lane detection and object detection logic...
         lane_obj = Lane(orig_frame=lane_frame)
         lane_line_markings = lane_obj.get_line_markings()
         lane_obj.perspective_transform()
         left_fitx, right_fitx, ploty = lane_obj.detect_lane_lines()
         frame_with_lane_lines = lane_obj.overlay_lane_lines(left_fitx, right_fitx, ploty)
 
-        combined_frame = cv2.addWeighted(frame_with_lane_lines, .5, frame, .5, 1)
-
-        frame_height, frame_width, _ = combined_frame.shape
-        update_line_positions(frame_width, frame_height, combined_frame)
-        draw_proximity_alert(proximity_alert, combined_frame, frame_width, frame_height)
+        # Overlay the lane lines on the frame with object detection
+        combined_frame = cv2.addWeighted(frame_with_lane_lines, .5, frame_with_lines, .5, 1)
+        draw_proximity_alert(proximity_alert, combined_frame, frame_width, frame_height)  # Pass frame dimensions
 
         _, buffer = cv2.imencode('.jpg', combined_frame)
         frame_bytes = buffer.tobytes()
