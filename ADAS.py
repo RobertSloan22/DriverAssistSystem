@@ -6,11 +6,11 @@ import cv2
 import sys
 import argparse
 from jetson_inference import detectNet
-from jetson_utils import videoSource, videoOutput, Log
+from jetson_utils import videoSource, videoOutput, Log, cudaAllocMapped, cudaMemcpy, cudaConvertColor, cudaFilter
 
 app = Flask(__name__)
 
-# Argument parsing for Jetson Inference
+
 parser = argparse.ArgumentParser(description="Combined Lane and Object Detection with Traffic Light State Recognition",
                                  formatter_class=argparse.RawTextHelpFormatter)
 
@@ -29,7 +29,7 @@ except:
 input = videoSource(args.input, argv=sys.argv)
 output = videoOutput(args.output, argv=sys.argv)
 
-# Load the object detection network
+
 net = jetson.inference.detectNet(args.network, sys.argv, args.threshold)
 net.SetTrackingEnabled(True)
 net.SetTrackingParams(minFrames=3, dropFrames=15, overlapThreshold=0.5)
@@ -52,11 +52,10 @@ right_fitx_avg = None
 smooth_factor = 0.9  # Adjust between 0 and 1
 
 # Traffic light detection settings
-TRAFFIC_LIGHT_CLASS_ID = 9  # Update this based on your model's class ID for traffic lights
+TRAFFIC_LIGHT_CLASS_ID = 9
 
 def detect_traffic_light_state(traffic_light_image):
     """Determine the state of the traffic light."""
-    # Convert to HSV color space
     hsv = cv2.cvtColor(traffic_light_image, cv2.COLOR_BGR2HSV)
 
     # Define color ranges
@@ -126,7 +125,7 @@ class Lane:
         # Convert frame to grayscale
         gray = cv2.cvtColor(self.orig_frame, cv2.COLOR_BGR2GRAY)
 
-        # Apply Gaussian Blur on CPU
+       
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
         # Apply Canny Edge Detection on GPU
